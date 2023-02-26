@@ -1,0 +1,10 @@
+1.生成.net6环境Jenkins镜像
+   jenkinsDockerFile
+
+2.创建服务器目录：
+   mkdir /var/jenkins/jenkins_home
+
+3.执行docker命令创建jenkins服务：
+
+   
+   

@@ -1,0 +1,12 @@
+1.服务器创建相关目录：
+  ONAR_HOME=/opt/sonarqube
+  mkdir -p /opt/sonarqube
+  cd /opt/sonarqube
+  mkdir /opt/sonarqube/sonarqube_data 
+            /opt/sonarqube/sonarqube_extensions 
+            /opt/sonarqube/sonarqube_logs 
+            /opt/sonarqube/sonarqube_temp 
+            /opt/sonarqube/postgresql 
+            /opt/sonarqube/postgresql/data 
+2.执行docker-compose.yml
+

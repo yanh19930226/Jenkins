@@ -1,0 +1,69 @@
+1.服务安装docker
+
+2.安装所需的包:
+   yum install -y yum-utils device-mapper-persistent-data lvm2
+
+3.设置稳定的存储库:
+   yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+4.安装docker ce：yum install -y docker-ce docker-ce-cli containerd.io
+
+5.安装Docker-compose:
+   sudo curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.1/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+
+6.修改二进制文件赋可执行权限：
+  chmod +x /usr/local/bin/docker-compose
+
+7.下载Harbor安装文件：
+   mkdir -p /harbor
+   cd /harbor/
+   wget https://github.com/goharbor/harbor/releases/download/v1.10.10/harbor-online-installer-v1.10.10.tgz
+   tar -zxf harbor-online-installer-v1.10.10.tgz
+
+8.修改Harbor的配置：
+   vi harbor.yml
+   修改hostname和port 
+   hostname: 192.168.66.102
+   port: 85 
+
+9.安装Harbor：
+   ./prepare
+   ./install.sh
+
+10.启动Harbor
+    docker-compose up -d 启动
+
+    docker-compose stop 停止
+
+    docker-compose restart 重新启动
+
+11.访问Harbor http://192.168.66.102:85
+
+     默认账户密码：admin/Harbor12345
+
+12.推送镜像到Habor
+
+     将habor服务地址添加到：docker信任列表
+
+     vi /etc/docker/daemon.json
+
+     { 
+         "registry-mirrors": ["https://zydiol88.mirror.aliyuncs.com"],
+         "insecure-registries": ["192.168.66.102:85"]
+     }
+
+     重启Docker
+
+     登入habor仓库：docker login -u 用户名 -p 密码 192.168.66.102:85
+
+     镜像打标签：docker tag eureka:v1 192.168.66.102:85/tensquare/eureka:v1
+     推送镜像：docker push 192.168.66.102:85/tensquare/eureka:v1
+
+
+
+
+
+
+
+
+   
