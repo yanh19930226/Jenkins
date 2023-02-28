@@ -1,0 +1,76 @@
+1.需要的凭据
+  
+  git拉取全局凭据：添加git凭据使用ssh沈城公私钥,配置在代码管理平台
+  服务器管理全局凭据：和git凭据使用同一公私钥
+  harbor全局凭据：添加账号凭据,账号密码等于harbor仓库的密码
+  sonarqube全局凭据：添加sonarqube凭据，使用sonarqube生成的token
+
+2.sonarqube的配置：
+   
+   插件管理下载sonarqube-scanner
+
+   全局配置中添加sonarqube-scanner
+
+   系统配置中添加sonarqube server,使用sonarqube凭据
+
+3.pubish over ssh配置
+   
+   插件管理安装pubish over ssh
+
+   发送公钥文件到目标机器
+
+
+3.添加钉钉通知机器人
+
+
+4.jenkins 自由构建代码
+
+   sonarqube配置：
+     sonar.sourceEncoding=UTF-8
+     sonar.projectKey=yandeweb   (sonarqube里的项目名)
+     sonar.projectName=yandeweb   (sonarqube里的项目名)
+     sonar.projectVersion=1.0
+     sonar.sources=.
+     sonar.language=C#
+  
+   构建Shell脚本：
+   
+   #!/bin/bash
+   #version
+
+   #yande_version_tag=0.8.6.0
+   yande_version_tag=`date +%Y%m%d%H%M`;
+
+   #docker build
+
+   echo "yandeweb docker build"
+   cd $WORKSPACE
+   docker build -t yandeweb:$yande_version_tag .
+
+   #remove docker container
+
+   dockercontainers=`docker ps -a | grep 'yandeweb' |awk '{print $1}'`
+   dockerimages=`docker ps -a | grep 'yandeweb' |awk '{print $2}'`
+   if test -n "$dockercontainers"; 
+   then 
+   docker container stop $dockercontainers;
+   docker container rm $dockercontainers;
+   fi;
+
+   #run docker container
+
+   docker run --name yandeweb -d -p 92:80 -e ASPNETCORE_ENVIRONMENT=production yandeweb:$yande_version_tag
+
+
+   #remove docker none image
+   if test -n "$dockerimages"
+   then
+   docker rmi -f $dockerimages
+   fi;
+   docker images  | grep none | awk '{print $3}' | xargs docker rmi;
+
+
+5.流水线构建代码：流水线脚本查看同目录的脚本Jenkinsfile
+
+
+    

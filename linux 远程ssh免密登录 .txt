@@ -1,0 +1,12 @@
+1.ssh-keygen生成公私钥：
+
+    ssh-keygen -m PEM -t rsa -b 4096
+    more .ssh/id_rsa 查看密钥版本
+
+2.ssh-copy-id将公钥复制到对应服务器：
+
+    输入139.199.196.67对应用户密码
+
+    ssh-copy-id -i /root/.ssh/id_rsa.pub root@139.199.196.67
+
+   备注：jenkins:配置密钥时报错的解决：Failed to add SSH key. 因为生成密钥的openssh的版本过高
