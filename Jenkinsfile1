@@ -1,0 +1,92 @@
+//code的git地址
+def git_url="git@codeup.aliyun.com:617109303962cc4bc2b6bdf6/net/In66.Web.git"
+ 
+//定义项目名称
+def project_name="webtest"
+ 
+//定义harbor地址
+def harbor_url="39.101.1.156:89"
+ 
+//Harbor的项目名称
+def harbor_project_name = "webtest"
+ 
+//harbor的账号密码的一个凭证
+def haror_auth="harborid"
+ 
+node {
+    
+        stage('pull code') {
+
+                echo 'pull code'
+
+                checkout([$class: 'GitSCM', branches: [[name: '*/${branch}']], extensions: [], userRemoteConfigs: [[credentialsId: 'jenkins', url: "${git_url}"]]])
+        }
+
+        stage('sonarQube analysis') {
+                // sh "echo sonar.projectKey=${project_name} > sonar-project.properties"
+                // sh "echo sonar.projectName=${project_name} >> sonar-project.properties"
+                // sh "echo sonar.projectVersion=1.0 >> sonar-project.properties"
+                // sh "echo sonar.language=c# >> sonar-project.properties"
+                // sh "echo sonar.sourceEncoding=UTF-8 >> sonar-project.properties"
+                // sh "echo sonar.sources=$WORKSPACE >> sonar-project.properties"
+                def scannerHome = tool 'SonarQubeScanner';
+                withSonarQubeEnv() {
+                  sh "${scannerHome}/bin/sonar-scanner"
+               }
+        }
+       
+
+        stage('build image') {
+                
+                 echo 'build image'
+
+                def imageName="${project_name}:${tag}"
+
+                def tagImageName="${harbor_url}/${harbor_project_name}/${imageName}"
+ 
+                echo  "当前分支${branch}"
+
+                sh "pwd"
+                
+                sh "docker build -t  ${imageName} ."
+               
+                sh "docker tag ${imageName} ${tagImageName}"
+        }
+        stage('push image') {
+
+                echo 'push image'
+
+                def imageName="${project_name}:${tag}"
+
+                def tagImageName="${harbor_url}/${harbor_project_name}/${imageName}"
+               
+                withCredentials([usernamePassword(credentialsId: "${haror_auth}", passwordVariable: 'password', usernameVariable: 'username')]) {
+
+                     echo "push image"
+                    
+                     sh "docker login -u ${username}  -p ${password} ${harbor_url}"
+                   
+                     sh "docker push ${tagImageName}"
+
+                     echo "镜像上传成功"
+
+                     sh "docker rmi -f ${imageName}"
+
+                     sh "docker rmi -f ${tagImageName}"
+
+                     echo "删除本地镜像成功"
+                }
+        }
+        stage('deploy image') {
+
+             echo "deploy image"
+ 
+
+             sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/test.sh $harbor_url $harbor_project_name $project_name $tag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+             
+
+            //  sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/deploy.sh $harbor_url $harbor_project_name $project_name $tag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+ 
+             echo "部署完成"
+        }
+}

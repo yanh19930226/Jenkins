@@ -1,65 +1,97 @@
- 
-//code的git地址
-def git_url="git@codeup.aliyun.com:617109303962cc4bc2b6bdf6/net/In66.Web.git"
- 
-//定义项目名称
-def project_name="webtest"
- 
-//定义harbor地址
-def harbor_url="39.101.1.156:89"
- 
-//Harbor的项目名称
-def harbor_project_name = "webtest"
- 
-//harbor的账号密码的一个凭证
-def haror_auth="harborid"
- 
-node {
-    
-        stage('pull code') {
+//开发环境
+def DEPLOY_DEV_HOST = [ '39.101.1.156','39.101.1.156','39.101.1.156']
+//测试环境
+def DEPLOY_TEST_THOST = [ '39.101.1.156','10.10.1.13','39.101.1.156']
+//生产环境
+def DEPLOY_PRO_THOST = [ '39.101.1.156','39.101.1.156','39.101.1.156']
 
-                echo 'pull code'
+pipeline {
+    
+    agent any
+    environment {
+
+        project_name = "${JOB_NAME}"
+
+        git_url = "git@codeup.aliyun.com:617109303962cc4bc2b6bdf6/net/In66.Web.git"  
+        
+        haror_auth="harborid"  
+        harbor_url="39.101.1.156:89"  
+        harbor_project_name = "${JOB_NAME}"
+        
+        imageName="${project_name}:${branch}"
+
+        tagImageName="${harbor_url}/${harbor_project_name}/${project_name}:${branch}" 
+    }
+
+    options {
+        timestamps()  //构建日志中带上时间
+        disableConcurrentBuilds()   // 不允许同时执行流水线
+        timeout(time: 5, unit: "MINUTES")   //设置流水线运行超过5分钟Jenkins将中止流水线
+        buildDiscarder(logRotator(numToKeepStr: "10"))   //表示保留10次构建历史
+    }
+
+    parameters {
+       choice (name: 'deploymode',choices: ['deploy', 'rollback'],description: '选择部署方式', )
+       //git参数
+       gitParameter( name: 'branch',branchFilter: 'origin/(.*)',defaultValue: 'dev', type: 'PT_BRANCH_TAG',description: '选择git分支')
+    }
+
+
+    stages {
+        stage ("Git拉取代码") {
+            when {
+                environment name:'deploymode', value:'deploy' 
+            }           
+            steps { 
 
                 checkout([$class: 'GitSCM', branches: [[name: '*/${branch}']], extensions: [], userRemoteConfigs: [[credentialsId: 'jenkins', url: "${git_url}"]]])
+            }
         }
 
-        stage('sonarQube analysis') {
-                // sh "echo sonar.projectKey=${project_name} > sonar-project.properties"
-                // sh "echo sonar.projectName=${project_name} >> sonar-project.properties"
-                // sh "echo sonar.projectVersion=1.0 >> sonar-project.properties"
-                // sh "echo sonar.language=c# >> sonar-project.properties"
-                // sh "echo sonar.sourceEncoding=UTF-8 >> sonar-project.properties"
-                // sh "echo sonar.sources=$WORKSPACE >> sonar-project.properties"
-                def scannerHome = tool 'SonarQubeScanner';
-                withSonarQubeEnv() {
+        stage('代码质量检测') {
+            steps {
+
+                echo '代码质量检测'
+
+                script {
+                    scannerHome = tool 'SonarQubeScanner'
+                }
+
+                withSonarQubeEnv('sonarqube') {
+                  
                   sh "${scannerHome}/bin/sonar-scanner"
-               }
+              }
+            }
         }
-       
 
-        stage('build image') {
-                
-                 echo 'build image'
-
-                def imageName="${project_name}:${tag}"
-
-                def tagImageName="${harbor_url}/${harbor_project_name}/${imageName}"
- 
-                echo  "当前分支${branch}"
-
-                sh "pwd"
-                
-                sh "docker build -t  ${imageName} ."
+        stage ("代码构建镜像") {
+            when {
+                environment name:'deploymode', value:'deploy' 
+            }    
+            steps {  
                
-                sh "docker tag ${imageName} ${tagImageName}"
+                script{
+
+                   //获取git当前head简短
+                   //build_tag = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+             
+                   sh "docker build -t  ${imageName} ."
+               
+                   sh "docker tag ${imageName} ${tagImageName}"
+
+                }
+            }
         }
-        stage('push image') {
 
-                echo 'push image'
+         stage('制作发布镜像发布') {
 
-                def imageName="${project_name}:${tag}"
+            when {
 
-                def tagImageName="${harbor_url}/${harbor_project_name}/${imageName}"
+                environment name:'deploymode', value:'deploy'
+
+            }  
+
+            steps {
                
                 withCredentials([usernamePassword(credentialsId: "${haror_auth}", passwordVariable: 'password', usernameVariable: 'username')]) {
 
@@ -77,17 +109,133 @@ node {
 
                      echo "删除本地镜像成功"
                 }
+            }
         }
-        stage('deploy image') {
 
-             echo "deploy image"
- 
-
-             sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/test.sh $harbor_url $harbor_project_name $project_name $tag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
-             
-
-            //  sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/deploy.sh $harbor_url $harbor_project_name $project_name $tag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
- 
-             echo "部署完成"
+        stage ("部署镜像") {
+            when {
+                environment name:'deploymode', value:'deploy' 
+            }
+            steps {  
+                script {
+                    switch("${branch}"){
+                        case 'dev':
+                            println("开始部署${branch}分支")
+                            for (deployip in DEPLOY_DEV_HOST){
+                                //  sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/test.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                                 echo "${branch}部署完成"
+                            }
+                        break;
+                        case 'test':
+                            println("开始部署${branch}分支")
+                            for (deployip in DEPLOY_TEST_THOST){
+                                // sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/test.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                                 echo "${branch}部署完成"
+                            }
+                            break;
+                        case 'master':
+                            println("开始部署${branch}分支")
+                            for (deployip in DEPLOY_PRO_THOST){
+                                //  sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/test.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                                 echo "${branch}部署完成"
+                            }
+                            break;
+                        default:
+                            println("开始部署${branch}分支")
+                            echo "${branch}部署完成"
+                            break;
+                    }   
+                }              
+            }
         }
+ 
+        stage ("回滚镜像") {
+            when {
+                environment name:'deploymode', value:'rollback' 
+            }
+            steps {  
+            println("开始回滚")
+                script {
+                    switch("${branch}"){
+                        case 'dev':
+                            println("开始回滚${branch}环境")
+                            for (rollbackip in DEPLOY_PRO_THOST){
+                                //获取旧版本的镜像
+
+                                sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/rollback.sh.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                                echo "回滚完成"
+                            }
+                        break;
+                        case 'test':
+                            println("开始回滚${branch}环境")
+                            for (rollbackip in DEPLOY_PRO_THOST){
+                                sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/rollback.sh.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                                echo "回滚完成"
+                            }
+                            break;
+                        case 'master':
+                            println("开始回滚${branch}环境")
+                            for (rollbackip in DEPLOY_PRO_THOST){
+                                sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/rollback.sh.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                                echo "回滚完成"
+                            }
+                            break;
+                         default:
+                            println("开始回滚${branch}分支")
+                            echo "${branch}回滚完成"
+                            break;
+                    }   
+                }
+            }
+        }
+       
+        stage('清理工作空间') {
+            steps {
+              cleanWs(
+                  cleanWhenAborted: true,
+                  cleanWhenFailure: true,
+                  cleanWhenNotBuilt: true,
+                  cleanWhenSuccess: true,
+                  cleanWhenUnstable: true,
+                  cleanupMatrixParent: true,
+                  // 这个选项是关闭延时删除，立即删除
+                  disableDeferredWipeout: true,
+                  deleteDirs: true
+              )
+            }
+        }
+    }
+
+     post {
+        success {
+            dingtalk (
+                robot: 'JenkinsRobot',
+                type:'ACTION_CARD',
+                title: "success: ${JOB_NAME}",
+                text: [
+                    "### [${env.JOB_NAME}](${env.JOB_URL}) ",
+                    '---',
+                    "- 任务：[${currentBuild.displayName}](${env.BUILD_URL})",
+                    '- 状态：<font color=#005EFF >成功</font>',
+                    "- 持续时间：${currentBuild.durationString}",
+                    "- 执行人：${currentBuild.buildCauses.shortDescription}",
+                  ]
+            )
+        }
+        failure {
+            dingtalk (
+                robot: 'JenkinsRobot',
+                type:'ACTION_CARD',
+                title: "fail: ${JOB_NAME}",
+                text: [
+                   "### [${env.JOB_NAME}](${env.JOB_URL}) ",
+                    '---',
+                    "- 任务：[${currentBuild.displayName}](${env.BUILD_URL})",
+                    '- 状态：<font color=#EE0000 >失败</font>',
+                    "- 持续时间：${currentBuild.durationString}",
+                    "- 执行人：${currentBuild.buildCauses.shortDescription}",
+                  ]
+            )
+        }
+    }
 }

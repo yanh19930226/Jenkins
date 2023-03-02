@@ -1,0 +1,123 @@
+pipeline {
+ 
+    agent any
+        environment{
+
+        project_name="webtest"
+
+        git_url="git@codeup.aliyun.com:617109303962cc4bc2b6bdf6/net/In66.Web.git"
+
+        imagetag='$(date "+%Y%m%d%H%M")';
+
+        imageName="${project_name}:${imagetag}"
+
+        tagImageName="${harbor_url}/${harbor_project_name}/${imageName}"
+
+        harbor_url="39.101.1.156:89"
+
+        harbor_project_name = "webtest"
+
+        haror_auth="harborid"
+        
+    }
+    // 存放所有任务的合集
+    stages {
+
+        stage('Git拉取代码') {
+            steps {
+
+                  echo 'Git拉取代码'
+
+                  checkout([$class: 'GitSCM', branches: [[name: '*/${branch}']], extensions: [], userRemoteConfigs: [[credentialsId: 'jenkins', url: "${git_url}"]]])
+
+            }
+        }
+ 
+        stage('代码质量检测') {
+            steps {
+
+                echo '代码质量检测'
+
+                script {
+                    scannerHome = tool 'SonarQubeScanner'
+                }
+
+                withSonarQubeEnv('sonarqube') {
+                  
+                  sh "${scannerHome}/bin/sonar-scanner"
+              }
+            }
+        }
+ 
+        stage('代码构建镜像') {
+            steps {
+                
+                sh "docker build -t  ${imageName} ."
+               
+                sh "docker tag ${imageName} ${tagImageName}"
+            }
+        }
+ 
+        stage('制作自定义镜像Harbor发布') {
+            steps {
+               
+                withCredentials([usernamePassword(credentialsId: "${haror_auth}", passwordVariable: 'password', usernameVariable: 'username')]) {
+
+                     echo "push image"
+                    
+                     sh "docker login -u ${username}  -p ${password} ${harbor_url}"
+                   
+                     sh "docker push ${tagImageName}"
+
+                     echo "镜像上传成功"
+
+                     sh "docker rmi -f ${imageName}"
+
+                     sh "docker rmi -f ${tagImageName}"
+
+                     echo "删除本地镜像成功"
+                }
+            }
+        }
+ 
+        stage('Harbor部署自定义镜像') {
+            steps {
+                sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/test.sh $harbor_url $harbor_project_name $project_name $imagetag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                //  sshPublisher(publishers: [sshPublisherDesc(configName: 'deploy', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/deploy.sh $harbor_url $harbor_project_name $project_name $tag $port", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                echo "部署完成"
+            }
+        }
+    }
+	  post {
+        success {
+            dingtalk (
+                robot: 'JenkinsRobot',
+                type:'ACTION_CARD',
+                title: "success: ${JOB_NAME}",
+                text: [
+                    "### [${env.JOB_NAME}](${env.JOB_URL}) ",
+                    '---',
+                    "- 任务：[${currentBuild.displayName}](${env.BUILD_URL})",
+                    '- 状态：<font color=#005EFF >成功</font>',
+                    "- 持续时间：${currentBuild.durationString}",
+                    "- 执行人：${currentBuild.buildCauses.shortDescription}",
+                  ]
+            )
+        }
+        failure {
+            dingtalk (
+                robot: 'JenkinsRobot',
+                type:'ACTION_CARD',
+                title: "fail: ${JOB_NAME}",
+                text: [
+                   "### [${env.JOB_NAME}](${env.JOB_URL}) ",
+                    '---',
+                    "- 任务：[${currentBuild.displayName}](${env.BUILD_URL})",
+                    '- 状态：<font color=#EE0000 >失败</font>',
+                    "- 持续时间：${currentBuild.durationString}",
+                    "- 执行人：${currentBuild.buildCauses.shortDescription}",
+                  ]
+            )
+        }
+    }
+}
