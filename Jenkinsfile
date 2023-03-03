@@ -38,7 +38,7 @@ pipeline {
        gitParameter(
              branch: '',
              branchFilter: 'origin.*/(.*)',
-             defaultValue: 'master', // default value 必填
+             defaultValue: 'main', // default value 必填
              name: 'branch',
              type: 'PT_BRANCH_TAG',
              description: '选择git分支'
