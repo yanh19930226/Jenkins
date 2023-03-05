@@ -1,15 +1,15 @@
 #!/bin/sh
 #接收外部参数
 harbor_url=$1
-harbor_project_name=$2
-project_name=$3
-tag=$4
-port=$5
+project_name=$2
+tagImageName=$3
+port=$4
+containerport=$5
 
-imageName=$harbor_url/$harbor_project_name/$project_name:$tag
-echo "$imageName"
+echo "$tagImageName"
+
 #查询容器是否存在，存在则删除
-containerId=`docker ps -a | grep -w ${project_name}:${tag} | awk '{print $1}'`
+containerId=`docker ps -a | grep -w ${project_name} | awk '{print $1}'`
 if [ "$containerId" != "" ] ; then
     #停掉容器
     docker stop $containerId
@@ -17,17 +17,23 @@ if [ "$containerId" != "" ] ; then
     docker rm $containerId
     echo "成功删除容器"
 fi
-#查询镜像是否存在，存在则删除
-imageId=`docker images | grep -w $project_name | awk '{print $3}'`
+
+#模糊删除镜像
+imageId=`docker images | grep -w ${tagImageName} | awk '{print $3}'`
 if [ "$imageId" != "" ] ; then
-    #删除镜像
+    #删除镜像       
     docker rmi -f $imageId
     echo "成功删除镜像"
+#删除none镜像
+    
 fi
 # 登录Harbor私服
 docker login -u admin -p Harbor12345 $harbor_url
 # 下载镜像
-docker pull $imageName
+docker pull $tagImageName
 # 启动容器
-docker run -d -p $port:$port $imageName
+docker run -d -p $port:$containerport --name $project_name $tagImageName
+
+docker rmi `docker images|grep none| awk '{print $3}'`
+
 echo "容器启动成功"

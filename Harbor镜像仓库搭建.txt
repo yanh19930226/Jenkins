@@ -45,7 +45,7 @@
 
      将habor服务地址添加到：docker信任列表
 
-     vi /etc/docker/daemon.json
+     他0
 
      { 
          "registry-mirrors": ["https://zydiol88.mirror.aliyuncs.com"],
