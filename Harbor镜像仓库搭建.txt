@@ -17,11 +17,14 @@
 7.下载Harbor安装文件：
    mkdir -p /harbor
    cd /harbor/
-   wget https://github.com/goharbor/harbor/releases/download/v1.10.10/harbor-online-installer-v1.10.10.tgz
-   tar -zxf harbor-online-installer-v1.10.10.tgz
+   wget https://github.com/goharbor/harbor/releases/download/v2.7.2/harbor-online-installer-v2.7.2.tgz
+   tar -zxf harbor-online-installer-v2.7.2.tgz
 
 8.修改Harbor的配置：
    vi harbor.yml
+    
+   注释掉https相关配置
+
    修改hostname和port 
    hostname: 192.168.66.102
    port: 85 
@@ -45,9 +48,11 @@
 
      将habor服务地址添加到：docker信任列表
 
+     vim /etc/docker/daemon.json
+
      { 
          "registry-mirrors": ["https://zydiol88.mirror.aliyuncs.com"],
-         "insecure-registries": ["192.168.66.102:85"]
+         "insecure-registries": ["8.130.109.62"]
      }
 
      重启Docker
