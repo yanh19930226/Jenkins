@@ -1,10 +1,197 @@
+================sonarqube环境=================
+
+1.服务器创建相关目录：
+
+  mkdir -p /opt/sonarqube
+  cd /opt/sonarqube
+  mkdir /opt/sonarqube/sonarqube_data /opt/sonarqube/sonarqube_extensions /opt/sonarqube/sonarqube_logs /opt/sonarqube/sonarqube_temp /opt/sonarqube/postgresql /opt/sonarqube/postgresql/data
+
+2.执行docker-compose.yml
+
+docker-compose up -d
+docker-compose down
+
+3.sonarqube-sonarqube 容器启动失败,可能是由于es启动失败导致
+设置 vm.max_map_count
+
+vi /etc/sysctl.conf
+文件最后添加一行
+vm.max_map_count=262144
+
+重启不会失效
+docker-compose -f docker-compose.yml restart
+docker-compose -f docker-compose.yml ps
+
+登入地址: IP:9000 账号密码:admin/admin
+
+================sonarqube环境=================
+
+================Jenkins环境=================
 1.生成.net6环境Jenkins镜像
-   jenkinsDockerFile
+   vim Dockerfile
 
 2.创建服务器目录：
-   mkdir /var/jenkins/jenkins_home
+   mkdir /usr/local/jenkins
 
 3.执行docker命令创建jenkins服务：
+
+cd /usr/local/jenkins
+mkdir jenkins_home
+docker build -t yandejenkins .
+mkdir jenkins_home
+
+3.创建容器
+
+docker run -u root -d -p 8080:8080 --name jenkins \
+-v /etc/localtime:/etc/localtime \
+-v /usr/bin/docker:/usr/bin/docker \
+-v /var/run/docker.sock:/var/run/docker.sock \
+-v /usr/local/jenkins/jenkins_home:/var/jenkins_home \
+yandejenkins
+
+// 进入容器 
+docker exec -it jenkins bash 
+//进入jenkins界面
+//http://你的ip:8080
+// 查看密码 
+cat /var/jenkins_home/secrets/initialAdminPassword
+//选择推荐需要安装的组件
+
+===========查看操作系统 ====================
+cat /etc/issue
+
+===========docker内安装git ====================
+apt-get install git
+
+#################################jenkins容器密钥配置(jenkins:配置密钥时报错的解决：Failed to add SSH key. 因为生成密钥的openssh的版本过高) #################################
+
+ssh-keygen -m PEM -t rsa -b 4096
+
+===========查看密钥版本===========
+more .ssh/id_rsa 
+
+========将公钥添加到对应的代码管理平台=========
+
+                           cat ~/.ssh/id_rsa.pub
+
+===========git clone 代码测试可行性===========
+
+===========拷贝密钥到部署服务器(免密发送部署脚本)===========
+
+
+********************对于ssh端口22********************
+
+ssh-copy-id -i ~/.ssh/id_rsa.pub root@8.130.109.62 
+
+=============>目标服务器:cd ~/.ssh 
+                                  cat authorized_keys
+
+********************对于ssh端口22********************
+
+********************对于ssh端口不是22********************
+
+ ssh-copy-id -i ~/.ssh/id_rsa.pub -p 4000 ubuntu@139.198.171.190
+ =============>目标服务器:cd /home/ubuntu/.ssh
+                                   cat authorized_keys
+
+********************对于ssh端口不是22********************
+
+#################################jenkins容器密钥配置#################################
+
+#################################配置publishoverssh插件#################################
+
+1.复制私钥
+2.vpc 网络配置高级
+
+#################################配置publishoverssh插件#################################
+
+#################################配置Harbor仓库#################################
+
+1.添加harbor全局凭据username passwaord
+
+2.Jenkins服务器,部署服务器登入Harbor:
+
+  docker login -u harbor -p 1234567890Yh! http://8.130.109.62
+
+  #Using --password via the CLI is insecure. Use --password-stdin解决办法
+
+docker push 8.130.109.62/mytest/REPOSITORY[:TAG]
+  
+  解决方法1:
+  vi /etc/docker/daemon.json
+ 
+  添加:"insecure-registries": ["8.130.109.62"]
+  {  
+     "registry-mirrors":["http://hub-mirror.c.163.com"],
+     "insecure-registries": ["8.130.109.62"]
+  }
+
+  解决方法2:vi /usr/lib/systemd/system/docker.service
+  #添加服务器的ip
+  ExecStart=/usr/bin/dockerd -H fd:// --insecure-registry 8.130.109.62 --containerd=/run/containerd/containerd.sock    
+  systemctl daemon-reload
+  systemctl restart docker
+     
+#################################配置Harbor仓库#################################
+
+#################################配置部署服务器脚本#################################
+
+1.mkdir -p /opt/jenkins_shell
+2.上传deploy.sh
+3./opt/jenkins_shell/deploy.sh 修改权限
+
+   
+#################################配置部署服务器脚本#################################
+
+#################################配置钉钉通知#################################
+
+安装钉钉插件
+打开Jenkins的Dashboard，安装插件
+
+打开【系统管理】->【插件管理】，安装"DingTalk"插件并重启
+
+打开【系统管理】->【系统配置】翻到“钉钉”配置位置，新增配置
+
+新版本Jenkins 钉钉选项在系统管理选线下新增配置
+
+#################################配置钉钉通知#################################
+
+#################################配置sonarqube#################################
+
+   1.插件管理下载sonarqube-scanner
+    
+   2.添加sonarqube全局凭据secrettext系统配置中添加sonarqube server
+
+    sonarqube: 2a2aa8b90d87a302eaf0a5271f9bc7d2e77bbb3f
+
+   3.全局配置中添加sonarqube-scanner
+
+#################################配置sonarqube#################################
+
+#################################添加gitparameter插件#################################
+
+
+
+
+#################################修改项目Jenkinsfile文件#################################
+
+1.git_url
+2.haror_auth="harbor"  
+3.harbor_url="8.130.109.62"
+4.
+  //开发环境
+  def DEPLOY_DEV_HOST = [ '116.62.214.239']
+  //测试环境
+  def DEPLOY_TEST_THOST = [ '116.62.214.239']
+  //Master环境
+  def DEPLOY_Master_THOST = [ '116.62.214.239']
+  //生产环境
+  def DEPLOY_PRO_THOST = [ '116.62.214.239']
+
+#################################修改项目Jenkinsfile文件#################################
+
+   
+
 
    
    
