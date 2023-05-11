@@ -102,6 +102,8 @@ ssh-copy-id -i ~/.ssh/id_rsa.pub root@8.130.109.62
 
 1.复制私钥
 2.vpc 网络配置高级
+publish over ssh 执行过程126错误:(1.脚本权限不足 2.脚本编码不对,修改脚本编码：set ff=unix)
+
 
 #################################配置publishoverssh插件#################################
 
@@ -118,7 +120,7 @@ ssh-copy-id -i ~/.ssh/id_rsa.pub root@8.130.109.62
 docker push 8.130.109.62/mytest/REPOSITORY[:TAG]
   
   解决方法1:
-  vi /etc/docker/daemon.json
+  vim /etc/docker/daemon.json
  
   添加:"insecure-registries": ["8.130.109.62"]
   {  
@@ -137,7 +139,7 @@ docker push 8.130.109.62/mytest/REPOSITORY[:TAG]
 #################################配置部署服务器脚本#################################
 
 1.mkdir -p /opt/jenkins_shell
-2.上传deploy.sh
+2.上传deploy.sh============(修改对应harbor登入账号密码,或者改成传参的方式)
 3./opt/jenkins_shell/deploy.sh 修改权限
 
    
