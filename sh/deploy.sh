@@ -6,42 +6,42 @@ tagImageName=$3
 port=$4
 containerport=$5
 
-echo "$tagImageName" > "/opt/log.txt"
+echo "开始执行脚本" > "/opt/log.txt"
 
 #查询容器是否存在，存在则删除
 containerId=`docker ps -a | grep -w ${project_name} | awk '{print $1}'`
 if [ "$containerId" != "" ] ; then
     #停掉容器
-    sudo docker stop $containerId
+    docker stop $containerId
     #删除容器
-    sudo docker rm $containerId
-    echo "成功删除容器1" >> "/opt/log.txt"
+    docker rm $containerId
+    echo "成功删除容器" >> "/opt/log.txt"
 fi
 
 #模糊删除镜像
 imageId=`docker images | grep -w ${tagImageName} | awk '{print $3}'`
 if [ "$imageId" != "" ] ; then
     #删除镜像       
-    sudo docker rmi -f $imageId
-    echo "成功删除镜像2" >> "/opt/log.txt"
+    docker rmi -f $imageId
+    echo "成功删除镜像" >> "/opt/log.txt"
 #删除none镜像
     
 fi
 # 登录Harbor私服
-sudo docker login -u harbor -p 1234567890Yh! $harbor_url
+docker login -u harbor -p 1234567890Yh! $harbor_url
 
 echo "docker login -u harbor -p 1234567890Yh! $harbor_url" >> "/opt/log.txt"
 
 # 下载镜像
-sudo docker pull $tagImageName
+docker pull $tagImageName
 
-echo "docker pull $tagImageName" >> "/opt/log.txt"
+echo "拉取镜像成功:docker pull $tagImageName" >> "/opt/log.txt"
 
 # 启动容器
-sudo docker run -d -p $port:$containerport --name $project_name $tagImageName
+docker run -d -p $port:$containerport --name $project_name $tagImageName
 
-echo "docker run -d -p $port:$containerport --name $project_name $tagImageName" >> "/opt/log.txt"
+echo "运行容器成功:docker run -d -p $port:$containerport --name $project_name $tagImageName" >> "/opt/log.txt"
 
-sudo docker rmi `docker images|grep none| awk '{print $3}'`
+docker rmi `docker images|grep none| awk '{print $3}'`
 
-echo "容器启动成功!!!" >> "/opt/log.txt"
+echo "删除虚悬镜像,容器启动成功" >> "/opt/log.txt"

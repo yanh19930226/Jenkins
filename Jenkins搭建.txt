@@ -101,9 +101,23 @@ ssh-copy-id -i ~/.ssh/id_rsa.pub root@8.130.109.62
 #################################配置publishoverssh插件#################################
 
 1.复制私钥
-2.vpc 网络配置高级
-publish over ssh 执行过程126错误:(1.脚本权限不足 2.脚本编码不对,修改脚本编码：set ff=unix)
 
+2.vpc 网络配置高级
+
+3.publish over ssh 执行过程126错误:(1.脚本权限不足 2.脚本编码不对,修改脚本编码：set ff=unix)
+
+开启verbose:true 可以查看具体报错信息
+
+ubuntu系统默认账号ubuntu不能执行docker命令:
+
+     添加docker用户组
+     sudo groupadd docker
+    
+     将登陆用户加入到docker用户组中
+     sudo gpasswd -a $USER docker
+
+     更新用户组
+     newgrp docker
 
 #################################配置publishoverssh插件#################################
 
