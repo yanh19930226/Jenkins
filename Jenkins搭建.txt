@@ -42,7 +42,10 @@ mkdir jenkins_home
 
 3.创建容器
 
-docker run -u root -d -p 8080:8080 --name jenkins \
+###注释
+50000端口用于k8s 动态构建使用
+
+docker run -u root -d -p 8080:8080 -p 50000:50000 --name jenkins \
 -v /etc/localtime:/etc/localtime \
 -v /usr/bin/docker:/usr/bin/docker \
 -v /var/run/docker.sock:/var/run/docker.sock \
@@ -139,7 +142,7 @@ docker push 8.130.109.62/mytest/REPOSITORY[:TAG]
   添加:"insecure-registries": ["8.130.109.62"]
   {  
      "registry-mirrors":["http://hub-mirror.c.163.com"],
-     "insecure-registries": ["8.130.109.62"]
+     "insecure-registries": ["http://8.130.109.62"]
   }
 
   解决方法2:vi /usr/lib/systemd/system/docker.service
@@ -206,8 +209,38 @@ docker push 8.130.109.62/mytest/REPOSITORY[:TAG]
 
 #################################修改项目Jenkinsfile文件#################################
 
-   
+================================k8s jenkins-slave动态部署==================================
+1.jenkins连接k8s集群
 
 
+2.k8s集群创建kubeconfig secret和harbor secret
+
+kubeconfig secret:
+    kubectl create secret generic kubeconfig --from-file=/root/.kube/config 
+
+harbor secret:
+    kubectl create secret docker-registry harborsecret --docker-server=http://8.130.109.62 --docker-username=harbor --docker-password=1234567890Yh! -n default
+
+2.编写不同语言podtemplate
+
+  集成示例模板:podtemplate
    
+3.jenkins-slave git 认证失败: 修改Git Host Key Verification Configuration=Accept first connection
+
+4.使用多个容器时遇到 Pipeline sh 步骤被挂起,需要设置-Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true错误
+  当jnlp容器中用户的 UID与另一个容器中的用户 UID 不同时，就会发生这种情况。使用的所有容器都应该具有相同的用户 UID
+  通过设置securityContext来实现
+
+  error loading config file "/root/.kube/config": open /root/.kube/config: permission denied
+
+  spec:
+  #以root用户身份云心容器
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+  #nodeSelector  
+  nodeSelector:
+    agent: true
+
    

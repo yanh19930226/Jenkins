@@ -1,11 +1,11 @@
 //开发环境
-def DEPLOY_DEV_HOST = [ '116.62.214.239']
+def DEPLOY_DEV_HOST = [ '139.198.171.190']
 //测试环境
-def DEPLOY_TEST_THOST = [ '116.62.214.239']
+def DEPLOY_TEST_THOST = [ '139.198.171.190']
 //Master环境
-def DEPLOY_Master_THOST = [ '116.62.214.239']
+def DEPLOY_Master_THOST = [ '139.198.171.190']
 //生产环境
-def DEPLOY_PRO_THOST = [ '116.62.214.239']
+def DEPLOY_PRO_THOST = [ '139.198.171.190']
 
 pipeline {
     
@@ -14,10 +14,10 @@ pipeline {
 
         project_name = "${JOB_NAME}"
 
-        git_url = "git@codeup.aliyun.com:617109303962cc4bc2b6bdf6/net/In66.Web.git"  
+        git_url = "git@github.com:yanh19930226/mytest.git"  
         
-        haror_auth="harborid"  
-        harbor_url="39.101.1.156:89"  
+        haror_auth="harbor"  
+        harbor_url="8.130.109.62"  
         harbor_project_name = "${JOB_NAME}"
         
         imageName="${project_name}:${branch}"
@@ -26,7 +26,7 @@ pipeline {
     }
 
     options {
-        timestamps()  //构建日志中带上时间
+        timestamps()  //构建日志带上时间
         disableConcurrentBuilds()   // 不允许同时执行流水线
         timeout(time: 5, unit: "MINUTES")   //设置流水线运行超过5分钟Jenkins将中止流水线
         buildDiscarder(logRotator(numToKeepStr: "10"))   //表示保留10次构建历史
@@ -55,8 +55,6 @@ pipeline {
                 environment name:'deploymode', value:'deploy' 
             }           
             steps { 
-
-                // git branch: "${branch}", credentialsId: 'jenkins', url: "${git_url}"
 
                 checkout([$class: 'GitSCM', 
                    branches: [[name: '${branch}']],
@@ -163,7 +161,7 @@ pipeline {
                                               sourceFiles: '')], 
                                               usePromotionTimestamp: false, 
                                               useWorkspaceInPromotion: false,
-                                              verbose: false)]
+                                              verbose: true)]
                                            )
 
                                   echo "${branch}部署完成"
@@ -180,8 +178,9 @@ pipeline {
                                               configName: deployip, 
                                               transfers: [sshTransfer(cleanRemote: false,
                                               excludes: '',
-                                              execCommand: "/opt/jenkins_shell/deploy.sh $harbor_url $project_name $tagImageName $port $containerport", 
-                                              execTimeout: 120000,
+                                              execCommand: "/root/deploy.sh $harbor_url $project_name $tagImageName $port $containerport", 
+                                            //   execCommand: "echo 'aaa'> /opt/test.txt", 
+                                              execTimeout: 920000,
                                               flatten: false, makeEmptyDirs: false, 
                                               noDefaultExcludes: false, patternSeparator: '[, ]+',
                                               remoteDirectory: '',
@@ -190,7 +189,7 @@ pipeline {
                                               sourceFiles: '')], 
                                               usePromotionTimestamp: false, 
                                               useWorkspaceInPromotion: false,
-                                              verbose: false)]
+                                              verbose: true)]
                                            )
 
                                   echo "${branch}部署完成"
@@ -244,7 +243,7 @@ pipeline {
                                             sourceFiles: '')], 
                                             usePromotionTimestamp: false, 
                                             useWorkspaceInPromotion: false,
-                                            verbose: false)]
+                                            verbose: true)]
                                          )
                                   echo "${branch}部署完成"
                             }
@@ -387,9 +386,33 @@ pipeline {
     }
 
      post {
+       
+        aborted {
+            //当此Pipeline 终止时打印消息
+            echo 'aborted'
+        }
+        changed {
+            //当pipeline的状态与上一次build状态不同时打印消息
+            echo 'changed'       
+        }    
+        unstable {
+           dingtalk (
+                robot: 'jenkins',
+                type:'ACTION_CARD',
+                title: "unstable: ${JOB_NAME}",
+                text: [
+                    "### [${env.JOB_NAME}](${env.JOB_URL}) ",
+                    '---',
+                    "- 任务：[${currentBuild.displayName}](${env.BUILD_URL})",
+                    '- 状态：<font color=#FF8000 >不稳定</font>',
+                    "- 持续时间：${currentBuild.durationString}",
+                    "- 执行人：${currentBuild.buildCauses.shortDescription}",
+                  ]
+            )
+        }
         success {
             dingtalk (
-                robot: 'JenkinsRobot',
+                robot: 'jenkins',
                 type:'ACTION_CARD',
                 title: "success: ${JOB_NAME}",
                 text: [
@@ -404,7 +427,7 @@ pipeline {
         }
         failure {
             dingtalk (
-                robot: 'JenkinsRobot',
+                robot: 'jenkins',
                 type:'ACTION_CARD',
                 title: "fail: ${JOB_NAME}",
                 text: [
